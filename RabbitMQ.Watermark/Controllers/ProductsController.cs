@@ -17,8 +17,9 @@ namespace RabbitMQ.Watermark.Controllers
         private readonly AppDbContext _context;
         private readonly RabbitMQPublisher _rabbitMQPublisher;
 
-        public ProductsController(AppDbContext context)
+        public ProductsController(AppDbContext context,RabbitMQPublisher rabbitMQPublisher)
         {
+            _rabbitMQPublisher = rabbitMQPublisher;
             _context = context;
         }
 
@@ -57,7 +58,7 @@ namespace RabbitMQ.Watermark.Controllers
         // For more details, see http://go.microsoft.com/fwlink/?LinkId=317598.
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Create([Bind("Id,Name,Price,Stock,PictureUrl")] Product product,IFormFile ImageFile)
+        public async Task<IActionResult> Create([Bind("Id,Name,Price,Stock,ImageName")] Product product,IFormFile ImageFile)
         {
             if (!ModelState.IsValid) return View(product);
 
@@ -71,14 +72,16 @@ namespace RabbitMQ.Watermark.Controllers
 
                 await ImageFile.CopyToAsync(stream);
 
-
+                _rabbitMQPublisher.Publish(new productImageCreatedEvent()
+                {
+                    ImageName = randomImageName,
+                });
+                product.ImageName = randomImageName;
             }
-    
+            
                 _context.Add(product);
                 await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
-           
-            return View(product);
         }
 
         // GET: Products/Edit/5
